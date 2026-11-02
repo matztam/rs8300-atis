@@ -150,7 +150,7 @@ Optional: `--port /dev/ttyACM0`. Without it, the tool uses the first serial port
 
 ## Sources
 
-- Manual RS8300/8400: <https://rigpix.com/marine/simrad-shipmate_rs8300-8400_manual.pdf>
+- Manual RS8300/8400: [RigPix – Shipmate RS-8300](https://rigpix.com/marine/shipmate_rs8300.htm) (download the PDF from that page; RigPix blocks direct links from other sites)
 - Schematics RS8300/8400 (peel.dk): <https://www.peel.dk/Shipmate/Equipment/Shipmate%20RS8300-8400%20-%20Marine%20VHF%20Radiotelephone%20(Schematics,%20bad%20quality%20scan).pdf>
 - AK93C45A datasheet (replacement part): <https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/2521/AK93C45A_55A_64A_75A.pdf>
 
