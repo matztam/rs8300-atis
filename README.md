@@ -24,6 +24,37 @@ This repository shows how to read and rewrite the ATIS directly in the radio's E
 
 Determined on a unit with firmware label "017" on the 87C51, through targeted write tests and reading back on the handset. Other firmware versions might differ, so check with `dump` and `show` first.
 
+## EEPROM map
+
+The NM93C46 is organized as 64 words × 16 bit (ORG pin tied to VCC); all addresses below are word addresses. Only the entries marked **verified** were confirmed by writing a value and checking the result on the handset. Everything else is an observation from dumps of a single unit.
+
+| Words | Content | Status |
+|---|---|---|
+| 0x00–0x0F | Nibble-coded data: every nibble holds a small value (seen: 0, 1, 2, F). Possibly per-channel flags (e.g. scan or favourite lists). | unverified |
+| 0x10–0x13 | `FFFF` (empty) | observation |
+| 0x14–0x1D | One decimal digit per byte in the high nibble, low nibble always `F`. Purpose unknown. | unverified |
+| 0x1E–0x2D | `FFFF` (empty) | observation |
+| **0x2E** | **ATIS digits 1–4**, packed BCD | **verified** |
+| **0x2F** | **ATIS digits 5–8**, packed BCD | **verified** |
+| 0x30 | Unknown. Changing the high byte had **no** effect on the displayed ATIS. | verified (not ATIS) |
+| 0x31–0x37 | `0000` | observation |
+| 0x38–0x3B | Device-specific values, probably calibration data (the schematic shows D/A converters for REF-ADJ, VCO, BUF-ADJ, squelch, power level and AF level, loaded from the controller). | unverified |
+| **0x3C** | **High byte: squelch setting** (changed when the squelch was adjusted on the radio); low byte unknown | **verified** (high byte) |
+| **0x3D** | **High byte: ATIS digits 9–10**, packed BCD; low byte unknown – leave it unchanged | **verified** (high byte) |
+| 0x3E–0x3F | Device-specific values, probably calibration data | unverified |
+
+Findings:
+
+- **The ATIS is split:** eight digits sit in 0x2E/0x2F, the last two in the high byte of 0x3D, far away from the rest. A search for the full number in a dump will therefore only find the first eight digits.
+- **No checksum** protects the ATIS. Changed values are accepted at the next power-on without any error message.
+- **The firmware writes user settings to the same EEPROM** during normal operation (squelch in 0x3C). Expect such words to differ between dumps.
+- **The handset lock** (82/83 → `error`) is implemented in the firmware. How the firmware decides that the ATIS is "programmed" (e.g. field not `FFFF`, or a separate flag) has not been examined; writing the EEPROM directly makes that unnecessary.
+- **Do not erase the whole chip.** The words in 0x38–0x3F most likely hold the factory calibration. Always keep your first full dump.
+
+### MMSI
+
+The RS8300/8400 manual describes MMSI entry (`E ↑ 92/93 E`) and display (`E ↑ 98/97 E`). On units with DSC the MMSI is probably stored in this EEPROM in a similar way (BCD), and the empty `FFFF` areas would leave room for it. The test unit has **no DSC support**, though, and returns `error` for all MMSI functions, so where and how the MMSI is stored **could not be verified**. If you have a DSC-equipped unit, a dump before and after entering the MMSI on the handset will show its location.
+
 ## Hardware
 
 - Arduino Uno or Nano (5 V)
