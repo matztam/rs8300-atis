@@ -4,6 +4,10 @@ On a **Simrad Shipmate RS8300** (inland VHF radio, built around 1999) the ATIS I
 
 This repository shows how to read and rewrite the ATIS directly in the radio's EEPROM with an **Arduino Uno** and a **SOIC-8 test clip**, without any soldering.
 
+![RS8300 main board with the SOIC-8 clip on the NM93C46 EEPROM (U18), next to the socketed P87C51FB, wired to an Arduino Uno](docs/rs8300-eeprom-clip.jpg)
+
+*The SOIC-8 clip sits on the NM93C46 (U18) just above and to the left of the socketed P87C51FB. In this photo the microcontroller is still in its socket – pull it before powering the EEPROM from the Arduino (see [Procedure](#procedure)).*
+
 > [!IMPORTANT]
 > **Legal:** A radio may only transmit with the ATIS assigned to the vessel by the responsible authority (in Germany: Bundesnetzagentur). These tools are meant for changing a radio to your **own, assigned** ID, for example after a change of ownership or when installing a used radio.
 >
@@ -68,7 +72,7 @@ Inside the main unit:
 | U13 | 87C51FB, PLCC-44, socketed | microcontroller with firmware |
 | **U18** | **NM93C46**, SO-8 | 1-kbit Microwire EEPROM, ORG tied to VCC, i.e. 64 × 16 bit |
 
-U18 sits next to the PLCC socket of the microcontroller.
+U18 sits just above and to the left of the PLCC socket of the microcontroller (see the photo at the top).
 
 ## Wiring
 
