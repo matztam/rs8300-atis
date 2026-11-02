@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""ATIS eines Simrad Shipmate RS8300 im NM93C46-EEPROM lesen und schreiben.
+"""Read and write the ATIS of a Simrad Shipmate RS8300 in its NM93C46 EEPROM.
 
-Benötigt den Arduino-Sketch aus src/ und pyserial (pip install pyserial).
+Requires the Arduino sketch in src/ and pyserial (pip install pyserial).
 
-  python3 atis.py dump                  # EEPROM sichern (dumps/*.bin)
-  python3 atis.py show                  # gespeicherte ATIS anzeigen
-  python3 atis.py set 9211xxxxxx        # neue ATIS schreiben (vorher automatisch Backup)
-  python3 atis.py restore dumps/x.bin   # Backup zurückschreiben (nur abweichende Worte)
+  python3 atis.py dump                  # back up the EEPROM (dumps/*.bin)
+  python3 atis.py show                  # show the stored ATIS
+  python3 atis.py set 9211xxxxxx        # write a new ATIS (automatic backup first)
+  python3 atis.py restore dumps/x.bin   # write a backup back (only differing words)
 
-Optionen: --port /dev/ttyACM0
+Options: --port /dev/ttyACM0
 """
 import argparse, datetime, glob, pathlib, re, sys, time
 
-# ATIS-Layout (64 × 16 Bit, Wortadressen), ermittelt am RS8300:
-#   Ziffern 1–4  -> Wort 0x2E (BCD)
-#   Ziffern 5–8  -> Wort 0x2F (BCD)
-#   Ziffern 9–10 -> Wort 0x3D, oberes Byte (BCD); unteres Byte bleibt unverändert
+# ATIS layout (64 x 16 bit, word addresses), determined on an RS8300:
+#   digits 1-4  -> word 0x2E (BCD)
+#   digits 5-8  -> word 0x2F (BCD)
+#   digits 9-10 -> word 0x3D, high byte (BCD); the low byte is left unchanged
 ADDR_A, ADDR_B, ADDR_C = 0x2E, 0x2F, 0x3D
 DUMP_DIR = pathlib.Path(__file__).resolve().parent / "dumps"
 
@@ -25,10 +25,10 @@ class Eeprom:
         import serial
         port = port or (sorted(glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*")) or [None])[0]
         if not port:
-            sys.exit("Kein Arduino gefunden (--port angeben)")
+            sys.exit("No Arduino found (use --port)")
         self.ser = serial.Serial(port, 115200, timeout=1)
-        time.sleep(2.5)  # Auto-Reset des Arduino abwarten
-        self._dump()     # erster Zugriff liefert manchmal Unsinn -> verwerfen
+        time.sleep(2.5)  # wait for the Arduino auto-reset
+        self._dump()     # the first access sometimes returns garbage -> discard
 
     def _dump(self):
         self.ser.reset_input_buffer()
@@ -42,15 +42,15 @@ class Eeprom:
                 for i, w in enumerate(m.group(2).split()):
                     words[base + i] = int(w, 16)
         if len(words) != 64:
-            sys.exit(f"Unvollständiger Dump ({len(words)}/64 Worte) – Sketch geflasht?")
+            sys.exit(f"Incomplete dump ({len(words)}/64 words) - is the sketch flashed?")
         return [words[i] for i in range(64)]
 
     def read_stable(self, n=3):
         reads = [self._dump() for _ in range(n)]
         if any(r != reads[0] for r in reads):
-            sys.exit("Lesevorgänge unterschiedlich – Clip, Verkabelung und Versorgung prüfen. Nichts geändert.")
+            sys.exit("Reads differ - check clip, wiring and power. Nothing was changed.")
         if len(set(reads[0])) == 1:
-            sys.exit(f"Alle Worte = {reads[0][0]:04X} – kein Kontakt oder Chip nicht versorgt.")
+            sys.exit(f"All words = {reads[0][0]:04X} - no contact or chip not powered.")
         return reads[0]
 
     def write(self, adr, val):
@@ -59,7 +59,7 @@ class Eeprom:
         resp = self.ser.readline().decode(errors="replace").strip()
         print(f"  w {adr:02X} {val:04X} -> {resp}")
         if "verify ok" not in resp:
-            sys.exit("Schreiben fehlgeschlagen – abgebrochen.")
+            sys.exit("Write failed - aborted.")
 
 
 def to_bytes(words):
@@ -68,7 +68,7 @@ def to_bytes(words):
 
 def from_bytes(data):
     if len(data) != 128:
-        sys.exit("Backup muss genau 128 Byte groß sein")
+        sys.exit("Backup must be exactly 128 bytes")
     return [int.from_bytes(data[i:i + 2], "big") for i in range(0, 128, 2)]
 
 
@@ -95,7 +95,7 @@ def write_diff(ee, current, target):
     after = ee.read_stable(2)
     if after != target:
         bad = [f"{i:02X}" for i in range(64) if after[i] != target[i]]
-        sys.exit(f"Kontrolle fehlgeschlagen an {bad}!")
+        sys.exit(f"Verification failed at {bad}!")
     return changes
 
 
@@ -110,7 +110,7 @@ def main():
     a = ap.parse_args()
 
     if a.cmd == "set" and not re.fullmatch(r"9\d{9}", a.atis):
-        sys.exit("ATIS muss 10 Ziffern haben und mit 9 beginnen")
+        sys.exit("ATIS must have 10 digits and start with 9")
     target_file = None
     if a.cmd == "restore":
         target_file = from_bytes(pathlib.Path(a.file).read_bytes())
@@ -120,22 +120,22 @@ def main():
 
     if a.cmd == "dump":
         show(words)
-        print(f"\nATIS: {atis_of(words)}\nGesichert: {save(words, 'dump')}")
+        print(f"\nATIS: {atis_of(words)}\nSaved: {save(words, 'dump')}")
     elif a.cmd == "show":
         print(f"ATIS: {atis_of(words)}")
     elif a.cmd == "set":
         old = atis_of(words)
-        print(f"Aktuelle ATIS: {old}\nBackup: {save(words, 'vor_set_' + old)}")
+        print(f"Current ATIS: {old}\nBackup: {save(words, 'before_set_' + old)}")
         target = list(words)
         target[ADDR_A] = int(a.atis[0:4], 16)
         target[ADDR_B] = int(a.atis[4:8], 16)
         target[ADDR_C] = (int(a.atis[8:10], 16) << 8) | (words[ADDR_C] & 0xFF)
         write_diff(ee, words, target)
-        print(f"Neue ATIS: {a.atis} (geschrieben und kontrolliert)")
+        print(f"New ATIS: {a.atis} (written and verified)")
     elif a.cmd == "restore":
-        print(f"Backup vom aktuellen Stand: {save(words, 'vor_restore')}")
+        print(f"Backup of current state: {save(words, 'before_restore')}")
         n = write_diff(ee, words, target_file)
-        print(f"{len(n)} Worte zurückgeschrieben, Inhalt entspricht {a.file}")
+        print(f"{len(n)} words written back, contents now match {a.file}")
 
 
 if __name__ == "__main__":

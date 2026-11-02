@@ -1,47 +1,45 @@
-# Simrad Shipmate RS8300 – ATIS umprogrammieren
+# Simrad Shipmate RS8300 – reprogramming the ATIS
 
-Die ATIS-Kennung eines **Simrad Shipmate RS8300** (UKW-Binnenfunk, Baujahr um 1999) lässt sich am Handset nur ein einziges Mal eingeben. Danach ist sie gesperrt, und laut Anleitung darf nur der Fachhändler sie ändern. Ein Händler-Tool dafür ist nicht mehr aufzutreiben.
+On a **Simrad Shipmate RS8300** (inland VHF radio, built around 1999) the ATIS ID can be entered on the handset only once. After that it is locked, and according to the manual only an authorized dealer may change it. The dealer tool for this is no longer available.
 
-Dieses Repository zeigt, wie man die ATIS mit einem **Arduino Uno** und einer **SOIC-8-Klemme** direkt im EEPROM des Geräts ausliest und neu schreibt, ohne zu löten.
-
-*English summary: The ATIS ID of a Simrad Shipmate RS8300 is stored as BCD in the NM93C46 Microwire EEPROM (U18) at word addresses 0x2E, 0x2F and the high byte of 0x3D. There is no checksum. An Arduino sketch and a Python tool to back up, read and write the ATIS are included.*
+This repository shows how to read and rewrite the ATIS directly in the radio's EEPROM with an **Arduino Uno** and a **SOIC-8 test clip**, without any soldering.
 
 > [!IMPORTANT]
-> **Rechtliches:** Ein Funkgerät darf nur mit der ATIS senden, die die zuständige Behörde dem Schiff zugeteilt hat (in Deutschland die Bundesnetzagentur). Die Tools sind dafür gedacht, ein Gerät auf die **eigene, zugeteilte** Kennung umzustellen, etwa nach einem Eignerwechsel oder beim Einbau eines gebrauchten Geräts.
+> **Legal:** A radio may only transmit with the ATIS assigned to the vessel by the responsible authority (in Germany: Bundesnetzagentur). These tools are meant for changing a radio to your **own, assigned** ID, for example after a change of ownership or when installing a used radio.
 >
-> Alles auf eigenes Risiko. Vor jeder Änderung ein Backup machen; das Tool erledigt das automatisch.
+> Use at your own risk. Make a backup before every change; the tool does this automatically.
 
-## Ergebnis in Kürze
+## Summary
 
-| ATIS-Ziffern | Speicherort im NM93C46 (64 × 16 Bit) | Beispiel `9211234567` |
+| ATIS digits | Location in the NM93C46 (64 × 16 bit) | Example `9211234567` |
 |---|---|---|
-| 1–4 | Wort **0x2E**, BCD | `9211` |
-| 5–8 | Wort **0x2F**, BCD | `2345` |
-| 9–10 | Wort **0x3D**, **oberes Byte**, BCD | `67xx` (unteres Byte nicht ändern) |
+| 1–4 | word **0x2E**, BCD | `9211` |
+| 5–8 | word **0x2F**, BCD | `2345` |
+| 9–10 | word **0x3D**, **high byte**, BCD | `67xx` (do not change the low byte) |
 
-- **Keine Prüfsumme.** Die Firmware übernimmt geänderte Werte beim nächsten Einschalten.
-- Am Handset zeigt **`E ↑ 88 E`** die Ziffern 1–5 und **`E ↑ 87 E`** die Ziffern 6–10. Eingegeben wird die ATIS mit `E ↑ 82 E` / `E ↑ 83 E`, solange sie noch nicht gesperrt ist.
-- Oberes Byte von Wort 0x3C = Squelch-Einstellung. Wort 0x30 hat nichts mit der ATIS zu tun.
-- **MMSI:** Ein RS8300 ohne DSC (keine Distress-Taste) kennt keine MMSI. `E ↑ 97/98 E` und `E ↑ 92/93 E` melden dann `error`. Das ist normal.
+- **No checksum.** The firmware accepts changed values at the next power-on.
+- On the handset, **`E ↑ 88 E`** shows digits 1–5 and **`E ↑ 87 E`** shows digits 6–10. The ATIS is entered with `E ↑ 82 E` / `E ↑ 83 E` as long as it is not yet locked.
+- High byte of word 0x3C = squelch setting. Word 0x30 is not related to the ATIS.
+- **MMSI:** An RS8300 without DSC (no distress button) has no MMSI. `E ↑ 97/98 E` and `E ↑ 92/93 E` then show `error`. That is normal.
 
-Ermittelt an einem Gerät mit Firmware-Aufkleber „017“ auf dem 87C51, durch gezielte Schreibtests und Ablesen am Handset. Andere Firmware-Stände könnten abweichen, deshalb vorher `dump` und `show` prüfen.
+Determined on a unit with firmware label "017" on the 87C51, through targeted write tests and reading back on the handset. Other firmware versions might differ, so check with `dump` and `show` first.
 
 ## Hardware
 
-- Arduino Uno oder Nano (5 V)
-- SOIC-8-Testklemme mit Adapter auf Steckbrett oder Jumperkabel
-- Optional: Multimeter
+- Arduino Uno or Nano (5 V)
+- SOIC-8 test clip with an adapter to a breadboard or jumper wires
+- Optional: multimeter
 
-Im Hauptgerät stecken:
+Inside the main unit:
 
-| Bauteil | Typ | Bedeutung |
+| Part | Type | Purpose |
 |---|---|---|
-| U13 | 87C51FB, PLCC-44, gesockelt | Prozessor mit Firmware |
-| **U18** | **NM93C46**, SO-8 | 1-kBit-Microwire-EEPROM, ORG auf VCC, also 64 × 16 Bit |
+| U13 | 87C51FB, PLCC-44, socketed | microcontroller with firmware |
+| **U18** | **NM93C46**, SO-8 | 1-kbit Microwire EEPROM, ORG tied to VCC, i.e. 64 × 16 bit |
 
-U18 sitzt neben dem PLCC-Sockel des Prozessors.
+U18 sits next to the PLCC socket of the microcontroller.
 
-## Verdrahtung
+## Wiring
 
 | NM93C46 | Signal | Arduino |
 |---|---|---|
@@ -51,76 +49,76 @@ U18 sitzt neben dem PLCC-Sockel des Prozessors.
 | 4 | DO | D12 |
 | 5 | GND | GND |
 | 8 | VCC | **5V** |
-| 6 / 7 | ORG / NC | nicht anschließen |
+| 6 / 7 | ORG / NC | leave unconnected |
 
-## Ablauf
+## Procedure
 
 > [!WARNING]
-> **Ohne Prozessor lässt sich das Gerät nicht einschalten.** Eingeschaltet wird es übers Handset, und das wertet der Prozessor aus. Der EEPROM bekommt seinen Strom deshalb vom Arduino.
+> **The radio cannot be switched on without the microcontroller.** It is switched on via the handset, which the microcontroller handles. The EEPROM is therefore powered by the Arduino.
 >
-> Dabei versorgt der Arduino die ganze 5-V-Schiene der Platine mit. Deshalb vorher **unbedingt die 12 V abklemmen** und **den 87C51 aus dem Sockel ziehen**. Sonst läuft der Prozessor mit und kommt dem Arduino auf dem Bus in die Quere.
+> In doing so, the Arduino also powers the board's entire 5 V rail. So beforehand **always disconnect the 12 V supply** and **pull the 87C51 from its socket**. Otherwise the microcontroller runs as well and interferes with the Arduino on the bus.
 
-1. **12 V abklemmen**, Gerät öffnen, **87C51 ziehen**. Lage von Pin 1 merken.
-2. Den Widerstand zwischen EEPROM Pin 8 und Pin 5 messen und einen Kurzschluss ausschließen.
-3. Klemme aufsetzen (Pin 1 beachten) und wie oben verdrahten.
-4. Sketch flashen:
+1. **Disconnect 12 V**, open the radio, **pull the 87C51**. Note the position of pin 1.
+2. Measure the resistance between EEPROM pin 8 and pin 5 to rule out a short.
+3. Attach the clip (mind pin 1) and wire it as shown above.
+4. Flash the sketch:
    ```sh
-   pio run -e uno -t upload        # oder: -e nano
+   pio run -e uno -t upload        # or: -e nano
    ```
-   Alternativ `src/mw93c46.ino` mit der Arduino IDE öffnen und hochladen.
-5. Python-Abhängigkeit installieren: `pip install pyserial`
-6. **Backup** anlegen und aktuelle ATIS anzeigen:
+   Alternatively open `src/mw93c46.ino` in the Arduino IDE and upload it.
+5. Install the Python dependency: `pip install pyserial`
+6. Make a **backup** and show the current ATIS:
    ```sh
    python3 atis.py dump
    ```
-   Den Dump unter `dumps/` gut aufheben. Er enthält auch die Abgleichwerte des Geräts.
-7. **Neue ATIS schreiben.** Vorher wird automatisch ein Backup angelegt, danach wird kontrolliert gelesen:
+   Keep the dump in `dumps/` safe. It also contains the radio's calibration values.
+7. **Write the new ATIS.** A backup is made automatically first; afterwards the result is read back and verified:
    ```sh
    python3 atis.py set 9211234567
    ```
-8. Arduino-5V abklemmen, Klemme abnehmen, 87C51 wieder einsetzen, 12 V anschließen.
-9. Übers Handset einschalten und mit `E ↑ 88 E` und `E ↑ 87 E` kontrollieren.
+8. Disconnect the Arduino 5 V, remove the clip, reinsert the 87C51, connect 12 V.
+9. Switch on via the handset and check with `E ↑ 88 E` and `E ↑ 87 E`.
 
-Zurück zum alten Stand:
+To go back to the previous state:
 ```sh
-python3 atis.py restore dumps/nm93c46_<datum>_dump.bin
+python3 atis.py restore dumps/nm93c46_<date>_dump.bin
 ```
 
-## Werkzeuge
+## Tools
 
-### `src/mw93c46.ino`: Arduino-Sketch
-Microwire-Treiber für 93C46 im 64×16-Modus. Bedienung über die serielle Schnittstelle (115200 Baud, Zeilenende `\n`, alle Werte hex):
+### `src/mw93c46.ino`: Arduino sketch
+Microwire driver for the 93C46 in 64×16 mode. Controlled over the serial port (115200 baud, line ending `\n`, all values hex):
 
-| Befehl | Funktion |
+| Command | Function |
 |---|---|
-| `d` | ganzen EEPROM ausgeben |
-| `r <adr>` | ein Wort lesen |
-| `w <adr> <wort>` | ein Wort schreiben, danach zurücklesen und prüfen |
+| `d` | dump the whole EEPROM |
+| `r <adr>` | read one word |
+| `w <adr> <word>` | write one word, then read it back and verify |
 
-Der Sketch verwendet weder ERASE noch ERAL. So funktioniert er auch mit Ersatztypen wie dem AK93C45A, die diese Befehle nicht kennen.
+The sketch never uses ERASE or ERAL. That way it also works with replacement parts such as the AK93C45A, which do not support these commands.
 
-### `atis.py`: Python-Tool
-| Befehl | Funktion |
+### `atis.py`: Python tool
+| Command | Function |
 |---|---|
-| `dump` | dreimal lesen, vergleichen, Backup speichern |
-| `show` | gespeicherte ATIS anzeigen |
-| `set <atis>` | Backup anlegen, ATIS schreiben, kontrollieren |
-| `restore <datei>` | Backup zurückschreiben (nur die Worte, die abweichen) |
+| `dump` | read three times, compare, save a backup |
+| `show` | show the stored ATIS |
+| `set <atis>` | make a backup, write the ATIS, verify |
+| `restore <file>` | write a backup back (only the words that differ) |
 
-Optional: `--port /dev/ttyACM0`. Ohne Angabe nimmt das Tool die erste gefundene serielle Schnittstelle.
+Optional: `--port /dev/ttyACM0`. Without it, the tool uses the first serial port it finds.
 
-## Fehlersuche
+## Troubleshooting
 
-- **Der erste Lesevorgang nach dem Anschließen liefert in 0x00–0x0F nur `0000`:** Das ist ein bekannter Effekt beim ersten Zugriff. `atis.py` verwirft deshalb den ersten Dump und liest danach dreimal zum Vergleich.
-- **Die Dumps unterscheiden sich, oder alle Worte sind `FFFF` oder `0000`:** Die Klemme sitzt schlecht, Pin 1 ist verdreht oder Pin 8 hat keine 5 V.
-- **Am Handset erscheint `error` bei 82/83:** Die ATIS ist gesperrt. Genau dafür ist dieses Repository da.
+- **The first read after connecting returns only `0000` in 0x00–0x0F:** This is a known effect on the first access. `atis.py` therefore discards the first dump and then reads three times for comparison.
+- **The dumps differ, or all words are `FFFF` or `0000`:** The clip is not seated properly, pin 1 is reversed, or pin 8 has no 5 V.
+- **The handset shows `error` for 82/83:** The ATIS is locked. That is exactly what this repository is for.
 
-## Quellen
+## Sources
 
-- Bedienungsanleitung RS8300/8400: <https://rigpix.com/marine/simrad-shipmate_rs8300-8400_manual.pdf>
-- Schaltplan RS8300/8400 (peel.dk): <https://www.peel.dk/Shipmate/Equipment/Shipmate%20RS8300-8400%20-%20Marine%20VHF%20Radiotelephone%20(Schematics,%20bad%20quality%20scan).pdf>
-- Datenblatt AK93C45A (Ersatztyp): <https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/2521/AK93C45A_55A_64A_75A.pdf>
+- Manual RS8300/8400: <https://rigpix.com/marine/simrad-shipmate_rs8300-8400_manual.pdf>
+- Schematics RS8300/8400 (peel.dk): <https://www.peel.dk/Shipmate/Equipment/Shipmate%20RS8300-8400%20-%20Marine%20VHF%20Radiotelephone%20(Schematics,%20bad%20quality%20scan).pdf>
+- AK93C45A datasheet (replacement part): <https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/2521/AK93C45A_55A_64A_75A.pdf>
 
-## Lizenz
+## License
 
 [MIT](LICENSE)

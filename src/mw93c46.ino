@@ -1,3 +1,7 @@
+// Microwire driver for NM93C46 / AK93C45A (64 x 16 bit, ORG = VCC).
+// Serial 115200 baud: d = dump | r <adr> = read word | w <adr> <word> = write + verify (all hex).
+// Never issues ERASE/ERAL (not supported by AK93C45A).
+
 const uint8_t PIN_CS = 10, PIN_SK = 13, PIN_DI = 11, PIN_DO = 12;
 const uint8_t ADDR_BITS = 6;
 
@@ -7,7 +11,7 @@ void csOn()  { digitalWrite(PIN_SK, LOW); digitalWrite(PIN_CS, HIGH); delayMicro
 void csOff() { digitalWrite(PIN_CS, LOW); digitalWrite(PIN_DI, LOW); delayMicroseconds(5); }
 
 uint16_t readWord(uint8_t adr) {
-  csOn(); sendBits(0b110, 3); sendBits(adr, ADDR_BITS);   // danach Dummy-0 an DO
+  csOn(); sendBits(0b110, 3); sendBits(adr, ADDR_BITS);   // chip then outputs a dummy 0 on DO
   uint16_t v = 0;
   for (uint8_t i = 0; i < 16; i++) {
     delayMicroseconds(5); digitalWrite(PIN_SK, HIGH); delayMicroseconds(5);
