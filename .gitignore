@@ -1,0 +1,6 @@
+.pio/
+.vscode/
+__pycache__/
+# persönliche EEPROM-Dumps und Notizen nicht veröffentlichen
+dumps/
+NOTES.md
